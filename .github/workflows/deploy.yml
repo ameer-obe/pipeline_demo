@@ -1,0 +1,40 @@
+# =============================================================================
+#  CONTINUOUS DEPLOYMENT (CD) PIPELINE  (simulated)
+# =============================================================================
+#  Where ci.yml runs on every PR, this one runs ONLY after code lands on main
+#  (i.e. right after you merge a PR). That is the classic split:
+#     CI  = "is this change safe?"   -> runs on the PR, before merge
+#     CD  = "ship the merged change" -> runs on main, after merge
+#
+#  We don't deploy to a real server here — we just print what a deploy would
+#  do, so you can watch the flow without needing any cloud credentials.
+# =============================================================================
+
+name: Deploy (simulated)
+
+on:
+  push:
+    branches: [main]          # fires the moment a PR is merged into main
+  workflow_dispatch:          # ...or run it by hand from the Actions tab
+
+jobs:
+  deploy:
+    name: Deploy to "production"
+    runs-on: ubuntu-latest
+
+    # "environment" can later be wired to require manual approval or hold
+    # secrets. It shows up as a deployment record in the repo's Environments.
+    environment: production
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Pretend to deploy
+        run: |
+          echo "🚀 Deploying calculator $(git rev-parse --short HEAD) to production..."
+          echo "   - uploading artifact"
+          echo "   - running database migrations (none)"
+          echo "   - flipping traffic to the new version"
+          echo "✅ Deploy complete. In a real project this step would call"
+          echo "   AWS / Azure / GCP / SSH / kubectl etc. using repo secrets."

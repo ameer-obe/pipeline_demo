@@ -1,0 +1,7 @@
+# Development + CI dependencies.
+# The pipeline installs these so it has the same tools you use locally.
+
+pytest==8.2.0        # test runner
+pytest-cov==5.0.0    # coverage reporting for pytest
+flake8==7.0.0        # linter: catches style issues and likely bugs
+black==24.4.2        # code formatter: we run it in --check mode in CI

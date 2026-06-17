@@ -1,0 +1,139 @@
+# =============================================================================
+#  CONTINUOUS INTEGRATION (CI) PIPELINE
+# =============================================================================
+#  This file lives in .github/workflows/ — GitHub automatically finds any
+#  .yml file in that folder and treats it as a "workflow".
+#
+#  WHAT IT DOES, IN PLAIN ENGLISH:
+#    Every time someone opens a Pull Request to `main` (or pushes to `main`),
+#    GitHub spins up fresh virtual machines and runs three jobs:
+#       1. lint   -> is the code formatted + style-clean?
+#       2. test   -> do all the tests pass, on multiple Python versions?
+#       3. build  -> can we package the app into a shippable artifact?
+#    If any job fails, the PR shows a red ❌ and (with branch protection on)
+#    you cannot merge. If all pass, you get a green ✅.
+# =============================================================================
+
+# The human-friendly name shown in the GitHub "Actions" tab.
+name: CI
+
+# -----------------------------------------------------------------------------
+#  TRIGGERS — "on" decides WHEN this workflow runs.
+# -----------------------------------------------------------------------------
+on:
+  # Run when a Pull Request targets the main branch. THIS is the one you'll
+  # see fire when you open a PR. It runs against the merged result.
+  pull_request:
+    branches: [main]
+
+  # Also run when commits land directly on main (e.g. right after a merge),
+  # so main is always verified.
+  push:
+    branches: [main]
+
+  # Lets you trigger the pipeline manually from the Actions tab via a button.
+  workflow_dispatch:
+
+# -----------------------------------------------------------------------------
+#  JOBS — each job runs on its own fresh, isolated virtual machine.
+#  By default jobs run IN PARALLEL unless one "needs" another.
+# -----------------------------------------------------------------------------
+jobs:
+
+  # ===========================================================================
+  #  JOB 1: LINT — fast feedback on code style/quality. Runs first/parallel.
+  # ===========================================================================
+  lint:
+    name: Lint (flake8 + black)
+    runs-on: ubuntu-latest          # GitHub-hosted Ubuntu VM, free for public repos
+
+    steps:
+      # "uses" pulls in a prebuilt, reusable action from the marketplace.
+      # checkout copies your repository onto the runner so we can work on it.
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # "run" executes a shell command on the runner, just like your terminal.
+      - name: Install dev tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Check formatting with black
+        # --check means "don't change files, just fail if they aren't formatted".
+        run: black --check .
+
+      - name: Lint with flake8
+        # max-line-length matches black so the two tools don't disagree.
+        run: flake8 . --max-line-length=88
+
+  # ===========================================================================
+  #  JOB 2: TEST — runs the test suite across several Python versions.
+  #  This uses a "matrix": the SAME job is cloned once per version, in parallel.
+  # ===========================================================================
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      # If one version fails, keep running the others so you see the full picture.
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run tests with coverage
+        # Runs pytest and measures how much of the calculator package is covered.
+        run: pytest --cov=calculator --cov-report=term-missing
+
+  # ===========================================================================
+  #  JOB 3: BUILD — only runs if lint AND test succeed (see "needs").
+  #  Demonstrates producing an artifact you could later deploy/download.
+  # ===========================================================================
+  build:
+    name: Build artifact
+    runs-on: ubuntu-latest
+    needs: [lint, test]             # <-- the dependency that makes this run last
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build a wheel + source distribution
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build || echo "No build backend configured — packaging the source instead"
+          mkdir -p dist
+          # Always produce *something* so the artifact upload below has content.
+          tar -czf dist/calculator-source.tar.gz calculator tests pyproject.toml
+
+      # Saves the build output so you can download it from the run's summary page.
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: calculator-build
+          path: dist/
+          retention-days: 7
