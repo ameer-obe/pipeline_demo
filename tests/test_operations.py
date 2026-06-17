@@ -6,7 +6,7 @@ The CI pipeline runs exactly these tests on every pull request.
 
 import pytest
 
-from calculator import add, subtract, multiply, divide
+from calculator import add, subtract, multiply, divide, power
 
 
 def test_add():
@@ -27,6 +27,12 @@ def test_multiply():
 def test_divide():
     assert divide(10, 2) == 5
     assert divide(9, 3) == 3
+
+
+def test_power():
+    assert power(2, 3) == 8
+    assert power(5, 0) == 1
+    assert power(9, 0.5) == 3
 
 
 def test_divide_by_zero_raises():
